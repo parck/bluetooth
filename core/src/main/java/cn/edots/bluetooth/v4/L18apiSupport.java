@@ -8,10 +8,12 @@ import android.support.annotation.RequiresApi;
 import java.util.Set;
 import java.util.UUID;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.schedulers.Schedulers;
+
 
 /**
  * @Author Parck
@@ -26,9 +28,9 @@ public class L18apiSupport extends BlueV4Handler {
 
     @Override
     public Observable<Set<BluetoothDevice>> startSearch() {
-        return Observable.create(new Observable.OnSubscribe<Set<BluetoothDevice>>() {
+        return Observable.create(new ObservableOnSubscribe<Set<BluetoothDevice>>() {
             @Override
-            public void call(final Subscriber<? super Set<BluetoothDevice>> subscriber) {
+            public void subscribe(ObservableEmitter<Set<BluetoothDevice>> subscriber) {
                 scanCallback = new WCLeScanCallback(subscriber);
                 bluetoothAdapter.startLeScan(uuids.toArray(new UUID[uuids.size()]), scanCallback);
             }
@@ -46,9 +48,9 @@ public class L18apiSupport extends BlueV4Handler {
 
     class WCLeScanCallback implements BluetoothAdapter.LeScanCallback {
 
-        private Subscriber<? super Set<BluetoothDevice>> subscriber;
+        private ObservableEmitter<? super Set<BluetoothDevice>> subscriber;
 
-        public WCLeScanCallback(Subscriber<? super Set<BluetoothDevice>> subscriber) {
+        public WCLeScanCallback(ObservableEmitter<? super Set<BluetoothDevice>> subscriber) {
             this.subscriber = subscriber;
         }
 
@@ -56,7 +58,7 @@ public class L18apiSupport extends BlueV4Handler {
         public void onLeScan(BluetoothDevice device, int i, byte[] bytes) {
             devices.add(device);
             subscriber.onNext(devices);
-            subscriber.onCompleted();
+            subscriber.onComplete();
             bluetoothAdapter.stopLeScan(this);
         }
     }

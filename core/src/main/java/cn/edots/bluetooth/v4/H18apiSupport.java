@@ -14,8 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import rx.Observable;
-import rx.Subscriber;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
 
 /**
  * @Author Parck
@@ -30,10 +31,11 @@ public class H18apiSupport extends BlueV4Handler {
 
     @Override
     public Observable startSearch() {
-        return Observable.create(new Observable.OnSubscribe<Set<BluetoothDevice>>() {
+        return Observable.create(new ObservableOnSubscribe<Set<BluetoothDevice>>() {
             @Override
-            public void call(Subscriber<? super Set<BluetoothDevice>> subscriber) {
+            public void subscribe(ObservableEmitter<Set<BluetoothDevice>> subscriber) {
                 scanner = bluetoothAdapter.getBluetoothLeScanner();
+                if (scanner == null) return;
                 scanCallback = new WCScanCallback(subscriber);
                 List<ScanFilter> filters = new ArrayList<>();
                 ParcelUuid uuid = new ParcelUuid(uuids.get(0));
@@ -47,7 +49,8 @@ public class H18apiSupport extends BlueV4Handler {
 
     @Override
     public void stopSearch() {
-        if (scanner != null && scanCallback != null) scanner.stopScan(scanCallback);
+        if (bluetoothAdapter.isEnabled() && scanner != null && scanCallback != null)
+            scanner.stopScan(scanCallback);
     }
 
 
@@ -55,9 +58,9 @@ public class H18apiSupport extends BlueV4Handler {
     // inner class
     // =============================================================================================
     class WCScanCallback extends ScanCallback {
-        private Subscriber<? super Set<BluetoothDevice>> subscriber;
+        private ObservableEmitter<? super Set<BluetoothDevice>> subscriber;
 
-        public WCScanCallback(Subscriber<? super Set<BluetoothDevice>> subscriber) {
+        public WCScanCallback(ObservableEmitter<? super Set<BluetoothDevice>> subscriber) {
             this.subscriber = subscriber;
         }
 
@@ -66,7 +69,7 @@ public class H18apiSupport extends BlueV4Handler {
             super.onScanResult(callbackType, result);
             devices.add(result.getDevice());
             subscriber.onNext(devices);
-            subscriber.onCompleted();
+            subscriber.onComplete();
             scanner.stopScan(this);
         }
 
@@ -74,7 +77,7 @@ public class H18apiSupport extends BlueV4Handler {
         public void onScanFailed(int errorCode) {
             super.onScanFailed(errorCode);
             subscriber.onError(null);
-            subscriber.onCompleted();
+            subscriber.onComplete();
             scanner.stopScan(this);
         }
     }

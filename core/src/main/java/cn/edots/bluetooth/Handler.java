@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.os.Build;
+import android.util.Log;
 
 
 import java.util.HashSet;
@@ -11,10 +12,11 @@ import java.util.Set;
 
 import cn.edots.bluetooth.v3.BlueV3Handler;
 import cn.edots.bluetooth.v4.BlueV4Handler;
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.schedulers.Schedulers;
 
 /**
  * @Author Parck
@@ -28,10 +30,10 @@ public abstract class Handler {
     protected BluetoothAdapter bluetoothAdapter;
     protected Set<BluetoothDevice> devices;
 
-    public static Handler newInstance(Context context) {
+    public static Handler newInstance(Context context,String[] uuids) {
         Handler instance;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            instance = BlueV4Handler.newInstance();
+            instance = BlueV4Handler.newInstance(uuids);
         } else instance = new BlueV3Handler();
         instance.context = context;
         instance.bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -50,9 +52,9 @@ public abstract class Handler {
     }
 
     public Observable open() {
-        return Observable.create(new Observable.OnSubscribe<Boolean>() {
+        return Observable.create(new ObservableOnSubscribe<Boolean>() {
             @Override
-            public void call(Subscriber<? super Boolean> subscriber) {
+            public void subscribe(ObservableEmitter<Boolean> subscriber) {
                 boolean enable = bluetoothAdapter.enable();
                 int i = 0;
                 if (!enable) {
@@ -62,14 +64,19 @@ public abstract class Handler {
                         i++;
                     }
                 }
+                if (!enable) {
+                    subscriber.onError(null);
+                    subscriber.onComplete();
+                    return;
+                }
                 try {
                     Thread.sleep(3000);//隔1s
-                    subscriber.onNext(enable);
-                    subscriber.onCompleted();
+                    subscriber.onNext(true);
+                    subscriber.onComplete();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    Log.d("Handler", e.getMessage() == null ? "" : e.getMessage());
                     subscriber.onError(e);
-                    subscriber.onCompleted();
+                    subscriber.onComplete();
                 }
             }
         }).subscribeOn(Schedulers.newThread()).observeOn(AndroidSchedulers.mainThread());
